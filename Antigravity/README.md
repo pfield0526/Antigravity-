@@ -2,6 +2,9 @@
 
 将 Google Antigravity API 转换为 OpenAI 兼容格式的代理服务，支持流式响应、工具调用、多账号管理和完整的用户管理系统。
 
+测试地址
+https://ggt333.zeabur.app/user.html
+
 ## ✨ 核心功能
 
 ### API 代理

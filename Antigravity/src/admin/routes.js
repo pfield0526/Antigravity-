@@ -227,115 +227,148 @@ router.get('/oauth-callback', async (req, res) => {
 
     await addLog('success', '成功交换 Google OAuth Token');
 
-    // 获取用户信息
-    const userInfo = await new Promise((resolve, reject) => {
-      const options = {
-        hostname: 'www.googleapis.com',
-        path: '/oauth2/v2/userinfo',
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${tokenData.access_token}`
-        }
-      };
+    // 保存 Token 到 accounts.json
+    const account = {
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_in: tokenData.expires_in,
+      timestamp: Date.now()
+    };
 
-      const request = https.request(options, (response) => {
-        let body = '';
-        response.on('data', chunk => body += chunk);
-        response.on('end', () => {
-          if (response.statusCode === 200) {
-            resolve(JSON.parse(body));
-          } else {
-            reject(new Error('获取用户信息失败'));
-          }
-        });
-      });
+    const accountsFile = './data/accounts.json';
+    let accounts = [];
+    try {
+      const fsPromises = await import('fs/promises');
+      const data = await fsPromises.readFile(accountsFile, 'utf-8');
+      accounts = JSON.parse(data);
+    } catch {
+      // 文件不存在，使用空数组
+    }
+    accounts.push(account);
+    const fsPromises = await import('fs/promises');
+    await fsPromises.writeFile(accountsFile, JSON.stringify(accounts, null, 2));
+    await addLog('success', 'Token 已保存到 accounts.json');
 
-      request.on('error', reject);
-      request.end();
-    });
-
-    // 创建管理员会话
-    const sessionToken = createSession(userInfo.email);
-    await addLog('success', `${userInfo.email} 通过 Google OAuth 登录`);
-
-    // 返回 HTML 页面，使用 JavaScript 将 token 传递给主窗口
+    // 返回成功页面，显示 Token 信息
     res.send(`
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>登录成功</title>
+        <title>Token 添加成功</title>
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           }
-          .success-box {
+          .message-box {
             background: white;
             padding: 40px;
             border-radius: 16px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
             text-align: center;
+            max-width: 600px;
+            width: 100%;
           }
-          .checkmark {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            display: block;
-            stroke-width: 2;
-            stroke: #10b981;
-            stroke-miterlimit: 10;
-            margin: 0 auto 20px;
-            box-shadow: inset 0px 0px 0px #10b981;
-            animation: fill 0.4s ease-in-out 0.4s forwards, scale 0.3s ease-in-out 0.9s both;
-          }
-          .checkmark__circle {
-            stroke-dasharray: 166;
-            stroke-dashoffset: 166;
-            stroke-width: 2;
-            stroke-miterlimit: 10;
-            stroke: #10b981;
-            fill: none;
-            animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
-          }
-          .checkmark__check {
-            transform-origin: 50% 50%;
-            stroke-dasharray: 48;
-            stroke-dashoffset: 48;
-            animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
-          }
-          @keyframes stroke {
-            100% { stroke-dashoffset: 0; }
-          }
-          @keyframes fill {
-            100% { box-shadow: inset 0px 0px 0px 30px #10b981; }
-          }
-          h2 { color: #1e293b; margin-bottom: 10px; }
+          h2 { color: #22c55e; margin-bottom: 10px; }
           p { color: #64748b; }
+          .token-info {
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+          }
+          .token-field {
+            margin: 10px 0;
+          }
+          .token-field label {
+            display: block;
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 5px;
+          }
+          .token-field .value {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            max-height: 80px;
+            overflow-y: auto;
+          }
+          .copy-btn {
+            margin-left: 10px;
+            padding: 4px 8px;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+          }
+          .copy-btn:hover { background: #4f46e5; }
+          .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+          button.main-btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+          }
+          button.secondary-btn {
+            padding: 12px 24px;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+          }
+          .note { font-size: 12px; color: #94a3b8; margin-top: 15px; }
         </style>
       </head>
       <body>
-        <div class="success-box">
-          <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-            <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
-            <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
-          </svg>
-          <h2>登录成功！</h2>
-          <p>欢迎回来，${escapeHtml(userInfo.name || userInfo.email)}</p>
-          <p style="color: #94a3b8; font-size: 0.9em; margin-top: 20px;">正在跳转...</p>
+        <div class="message-box">
+          <h2>✓ Token 添加成功！</h2>
+          <p>Google Token 已成功添加到系统中</p>
+
+          <div class="token-info">
+            <div class="token-field">
+              <label>Access Token <button class="copy-btn" onclick="copyToken('access')">复制</button></label>
+              <div class="value" id="access-token">${tokenData.access_token}</div>
+            </div>
+            <div class="token-field">
+              <label>Refresh Token <button class="copy-btn" onclick="copyToken('refresh')">复制</button></label>
+              <div class="value" id="refresh-token">${tokenData.refresh_token || '无'}</div>
+            </div>
+            <div class="token-field">
+              <label>过期时间</label>
+              <div class="value">${tokenData.expires_in} 秒</div>
+            </div>
+          </div>
+
+          <p class="note">Token 已自动保存到系统，你也可以手动复制备用</p>
+          <div class="btn-group">
+            <button class="main-btn" onclick="window.location.href='/'">返回管理后台</button>
+            <button class="secondary-btn" onclick="window.location.href='/user.html'">返回用户中心</button>
+          </div>
         </div>
         <script>
-          localStorage.setItem('adminToken', '${escapeHtml(sessionToken)}');
-          localStorage.setItem('adminEmail', '${escapeHtml(userInfo.email)}');
-          localStorage.setItem('adminName', '${escapeHtml(userInfo.name || userInfo.email)}');
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 1500);
+          function copyToken(type) {
+            const el = document.getElementById(type + '-token');
+            navigator.clipboard.writeText(el.textContent).then(() => {
+              alert('已复制到剪贴板');
+            });
+          }
         </script>
       </body>
       </html>
@@ -920,6 +953,16 @@ router.get('/user/tokens', userAuth, async (req, res) => {
   }
 });
 
+// 用户触发 Google OAuth 登录流程
+router.post('/user/tokens/login', userAuth, async (req, res) => {
+  try {
+    const result = await triggerLogin();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 用户通过回调链接添加 Token
 router.post('/user/tokens/callback', userAuth, async (req, res) => {
   try {
@@ -1091,139 +1134,6 @@ router.patch('/user/tokens/:index/sharing', userAuth, async (req, res) => {
   }
 });
 
-// 用户 Token OAuth 回调（自动添加）
-router.get('/user/token-callback', async (req, res) => {
-  try {
-    const { code } = req.query;
-
-    if (!code) {
-      return res.status(400).send('<h1>授权失败</h1><p>未收到授权码</p>');
-    }
-
-    // 恢复用户 Token
-    const tempToken = req.cookies?.userTokenTemp;
-    if (!tempToken) {
-      return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>需要登录</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100vh;
-              margin: 0;
-              background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
-            }
-            .message-box {
-              background: white;
-              padding: 40px;
-              border-radius: 16px;
-              box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-              text-align: center;
-            }
-            h2 { color: #ef4444; margin-bottom: 10px; }
-            p { color: #64748b; }
-            button {
-              margin-top: 15px;
-              padding: 10px 20px;
-              background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-              color: white;
-              border: none;
-              border-radius: 8px;
-              cursor: pointer;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="message-box">
-            <h2>会话已过期</h2>
-            <p>请先登录后再添加 Token</p>
-            <button onclick="window.location.href='/user.html'">返回登录</button>
-          </div>
-        </body>
-        </html>
-      `);
-    }
-
-    // 交换 code 获取 token（此处省略交换代码，与回调链接方法类似）
-    // 直接返回页面让用户复制回调链接手动添加
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Token 授权成功</title>
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
-          }
-          .message-box {
-            background: white;
-            padding: 40px;
-            border-radius: 16px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            text-align: center;
-            max-width: 600px;
-          }
-          h2 { color: #1e293b; margin-bottom: 10px; }
-          p { color: #64748b; margin-bottom: 15px; }
-          .callback-url {
-            background: #f1f5f9;
-            padding: 15px;
-            border-radius: 8px;
-            word-break: break-all;
-            font-family: monospace;
-            font-size: 0.9em;
-            margin: 20px 0;
-          }
-          button {
-            margin-top: 15px;
-            padding: 10px 20px;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-right: 10px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="message-box">
-          <h2>授权成功！</h2>
-          <p>请复制下面的回调链接，返回用户中心手动添加</p>
-          <div class="callback-url" id="callbackUrl">${req.protocol}://${req.get('host')}${req.originalUrl}</div>
-          <button onclick="copyUrl()">复制链接</button>
-          <button onclick="window.location.href='/user.html'">返回用户中心</button>
-        </div>
-        <script>
-          function copyUrl() {
-            const url = document.getElementById('callbackUrl').textContent;
-            navigator.clipboard.writeText(url).then(() => {
-              alert('回调链接已复制！请返回用户中心粘贴');
-            });
-          }
-        </script>
-      </body>
-      </html>
-    `);
-  } catch (error) {
-    await addLog('error', `用户 Token 回调失败: ${error.message}`);
-    res.status(500).send(`<h1>错误</h1><p>${error.message}</p>`);
-  }
-});
-
 // ========== 公告公开 API ==========
 
 // 获取活跃公告（公开，用户端）
@@ -1231,6 +1141,18 @@ router.get('/announcements/active', async (req, res) => {
   try {
     const announcements = await getActiveAnnouncements();
     res.json(announcements);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 获取 OAuth 配置（公开接口，仅返回 clientId）
+router.get('/oauth-config', async (req, res) => {
+  try {
+    const settings = await loadSettings();
+    res.json({
+      clientId: settings.oauth?.clientId || ''
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

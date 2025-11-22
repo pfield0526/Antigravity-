@@ -82,6 +82,17 @@ export async function saveSettings(newSettings) {
       config.systemInstruction = newSettings.systemInstruction;
     }
 
+    // 更新 OAuth 配置
+    if (newSettings.oauth) {
+      config.oauth = config.oauth || {};
+      if (newSettings.oauth.clientId !== undefined) {
+        config.oauth.clientId = newSettings.oauth.clientId;
+      }
+      if (newSettings.oauth.clientSecret !== undefined) {
+        config.oauth.clientSecret = newSettings.oauth.clientSecret;
+      }
+    }
+
     // 写入文件
     await fs.writeFile(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
     logger.info('配置文件已保存');

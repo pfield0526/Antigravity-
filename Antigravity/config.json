@@ -18,7 +18,11 @@
   "security": {
     "maxRequestSize": "50mb",
     "apiKey": "sk-1234",
-    "adminPassword": "1234..aa"
+    "adminPassword": "admin123"
   },
-  "systemInstruction": ""
+  "systemInstruction": "",
+  "oauth": {
+    "clientId": "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com",
+    "clientSecret": "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"
+  }
 }
