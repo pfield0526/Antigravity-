@@ -2,7 +2,7 @@ import fs from 'fs';
 import log from '../utils/logger.js';
 
 const defaultConfig = {
-  server: { port: 8045, host: '127.0.0.1' },
+  server: { port: process.env.PORT || 8045, host: '0.0.0.0' },
   api: {
     url: 'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:streamGenerateContent?alt=sse',
     modelsUrl: 'https://daily-cloudcode-pa.sandbox.googleapis.com/v1internal:fetchAvailableModels',
